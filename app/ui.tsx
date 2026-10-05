@@ -1,259 +1,272 @@
 'use client';
-import {useEffect,useState} from 'react';
 
-type Dash=any;
+import {useEffect,useRef,useState,type ReactNode} from 'react';
+
+type Dash = any;
+
 const money=(n:number)=>new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:0}).format(Number(n)||0);
 const today=()=>new Date().toISOString().slice(0,10);
+const timeLabel=(v:string)=>new Date(v).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+
+const shortcuts=[
+  ['MT','Money Transfer'],['PS','Passport'],['X/P','Xerox / Print'],['FR','Frames'],['PH','Photo'],
+  ['ST','Stationery'],['GD','Design'],['WEB','Website'],['VID','Video'],['OT','Other']
+] as const;
+
+const fallback={
+  today:today(),
+  todayCash:{income:0,expense:0,net:0},
+  month:{income:0,expense:0,net:0,survival:28300,remaining:28300,daysLeft:0,runrate:0},
+  debts:{total:675000,paid:0,remaining:675000,monthlyTarget:56250,items:[]},
+  balances:{cashCounter:null,bank:null,aeps:null,closingDate:null},
+  closing:[],transactions:[],tasks:[],clients:[],shop:[],
+  plan:{
+    survivalMonthly:28300,
+    expenses:{shopRent:6800,shopSupplies:3000,groceries:5000,fuel:3500,emi1:2900,emi2:4100,emi3:3000,emiTotal:10000},
+    incomeReality:{jobSalary:36000,cooperativeDeduction:26166,bankCreditAfterDeduction:10474,usableJobIncome:0,salaryBasedGap:17826},
+    targets:{counterNetMin:18000,counterNetMax:22000,studioCashMin:75000,studioCashMax:85000,debtTotal:675000,debtMonthly:56250,profitMin:200000,profitMax:500000},
+    goldRateSite:{visitorsMin:4000,visitorsMax:6000},
+    roadmap:{
+      defense:'Counter services protect rent, supplies and essentials',
+      growth:'High-ticket B2B website, branding and commercial video work',
+      monetization:'Gold-rate website via display ads, affiliate partnerships and local jeweler sponsorships'
+    }
+  }
+};
 
 export default function CommandCenter(){
- const [d,setD]=useState<Dash|null>(null);const [tab,setTab]=useState('Home');const [quick,setQuick]=useState('');const [message,setMessage]=useState('');const [ai,setAi]=useState('');const [busy,setBusy]=useState(false);
- const load=async()=>{const r=await fetch('/api/dashboard',{cache:'no-store'});if(r.status===401){location.href='/login';return;}if(r.ok)setD(await r.json());};
- useEffect(()=>{load()},[]);
- const log=async()=>{if(!quick.trim())return;const r=await fetch('/api/transactions',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({input:quick})});const j=await r.json();setMessage(r.ok?'Saved '+money(j.transaction.amount)+' '+(j.transaction.direction==='in'?'in':'out')+(j.transaction.reason?' · '+j.transaction.reason:''):j.error||'Could not save');if(r.ok){setQuick('');load();}};
- const lock=async()=>{await fetch('/api/logout',{method:'POST'});location.href='/login';};
- if(!d)return <main className="main"><div className="card">Loading GreyStudio Command Center…</div></main>;
- const nav=['Home','Quick','Closing','Plan','Tasks','Clients','Debt','Shop','AI'];const debtPct=d.debts.total?Math.min(100,d.debts.paid/d.debts.total*100):0;const survivalPct=d.month.survival?Math.min(100,Math.max(0,d.month.net/d.month.survival*100)):0;
- return <div className="shell">
-  <aside className="sidebar"><Brand/><nav className="nav">{nav.map(x=><button key={x} className={tab===x?'active':''} onClick={()=>setTab(x)}>{x}</button>)}</nav><div className="footerNote">Private · Turso-backed<br/>Daily control center</div></aside>
-  <main className="main"><header className="topbar"><div><div className="pageTitle">GreyStudio</div><div className="pageSub">Finance · shop · agency · life</div></div><button className="btn secondary" onClick={lock}>Lock</button></header>
-   {tab==='Home'&&<><section className="card hero"><div><div className="eyebrow">TODAY'S COMMAND PANEL</div><h1>Control the cash. Build the agency.</h1><p className="muted">Capture every cash movement, protect the survival baseline, push high-margin work and keep debt visible.</p></div><div className="quickHome"><button className="btn primary bigLaunch" onClick={()=>setTab('Quick')}>Open Counter Calculator</button><div className="quickHint">MT · PS · X/P · FR · PH · ST · GD · WEB · VID</div></div>{message&&<div className={message.startsWith('Saved')?'green':'red'} style={{marginTop:10,fontSize:12}}>{message}</div>}</section>
-    <div className="grid kpiGrid"><K l="Month in" v={money(d.month.income)} h="cash received"/><K l="Month out" v={money(d.month.expense)} h="cash paid"/><K l="Net cash" v={money(d.month.net)} h="this month" c={d.month.net>=0?'green':'red'}/><K l="Survival gap" v={money(d.month.remaining)} h={d.month.daysLeft+' days left'} c={d.month.remaining?'yellow':'green'}/><K l="Debt left" v={money(d.debts.remaining)} h={Math.round(debtPct)+'% repaid'} c={d.debts.remaining?'yellow':'green'}/></div>
-    <div className="grid three balanceGrid" style={{marginTop:14}}>
-      <BalanceCard title="Cash Counter" value={d.balances.cashCounter} sub={d.balances.closingDate?'Closing · '+d.balances.closingDate:'No closing recorded'}/>
-      <BalanceCard title="Bank Balance" value={d.balances.bank} sub={d.balances.closingDate?'Same closing · '+d.balances.closingDate:'No closing recorded'}/>
-      <BalanceCard title="AEPS Balance" value={d.balances.aeps} sub={d.balances.closingDate?'Same closing · '+d.balances.closingDate:'No closing recorded'}/>
-    </div>
-    <div className="grid two" style={{marginTop:14}}><Progress title="Survival defense" pct={survivalPct} text={d.month.remaining?money(d.month.remaining)+' still needed this month':'Baseline covered for this month'} /><Progress title="Debt liquidation" pct={debtPct} text={money(d.debts.paid)+' paid · target '+money(d.debts.monthlyTarget)+'/month'}/></div>
-    <div className="grid three" style={{marginTop:14}}><ListCard title="Recent cashflow"><List rows={d.transactions.slice(0,7).map((t:any)=>({a:t.reason||t.category||'Quick entry',b:new Date(t.occurred_at).toLocaleString('en-IN'),v:(t.direction==='in'?'+':'-')+money(t.amount),c:t.direction==='in'?'green':'red'}))}/></ListCard><ListCard title="Priority tasks"><List rows={d.tasks.filter((t:any)=>t.status!=='done').slice(0,6).map((t:any)=>({a:t.title,b:t.area+' · '+t.priority,v:t.due_date||'No date'}))}/></ListCard><ListCard title="Pipeline"><List rows={d.clients.slice(0,6).map((c:any)=>({a:c.name,b:(c.service||'Service TBD')+' · '+c.status,v:money(c.value)}))}/></ListCard></div>
-   </>}
-   {tab==='Quick'&&<Quick d={d} reload={load}/>}
-   {tab==='Tasks'&&<Tasks d={d} reload={load}/>}
-   {tab==='Clients'&&<Clients d={d} reload={load}/>}
-   {tab==='Debt'&&<Debt d={d} reload={load}/>}
-   {tab==='Shop'&&<Shop d={d} reload={load}/>}
-   {tab==='AI'&&<Advisor value={ai} setValue={setAi} busy={busy} setBusy={setBusy}/>}
-  </main><div className="mobileNav">{nav.map(x=><button key={x} className={tab===x?'active':''} onClick={()=>setTab(x)}>{x}</button>)}</div>
- </div>
-}
-function Brand(){return <div className="brand"><div className="brandMark">G</div><div><div className="brandTitle">GreyStudio</div><div className="brandSub">Command Center</div></div></div>}
-function K({l,v,h,c}:{l:string;v:string;h:string;c?:string}){return <div className="card kpi"><div className="label">{l}</div><div className={'value '+(c||'')}>{v}</div><div className="hint">{h}</div></div>}
-function Progress({title,pct,text}:{title:string;pct:number;text:string}){return <div className="card"><div className="sectionHead"><h3>{title}</h3><small>{Math.round(pct)}%</small></div><div className="bar"><span style={{width:pct+'%'}}/></div><p className="muted small">{text}</p></div>}
-function ListCard({title,children}:{title:string;children:React.ReactNode}){return <div className="card"><div className="sectionHead"><h3>{title}</h3></div>{children}</div>}
-function List({rows}:{rows:any[]}){return <div className="list">{rows.length?rows.map((r,i)=><div className="row" key={i}><div className="rowMain"><div className="rowTitle">{r.a}</div><div className="rowMeta">{r.b}</div></div><strong className={r.c||''}>{r.v}</strong></div>):<div className="empty">No records yet</div>}</div>}
+  const [data,setData]=useState<Dash|null>(null);
+  const [tab,setTab]=useState('Home');
+  const [workTab,setWorkTab]=useState<'Tasks'|'Clients'>('Tasks');
+  const [refreshing,setRefreshing]=useState(false);
 
-function BalanceCard({title,value,sub}:{title:string;value:number|null;sub:string}){return <div className="card balanceCard"><div className="label">{title}</div><div className="balanceValue">{value==null?'Not set':money(value)}</div><div className="hint">{sub}</div></div>}
-function Closing({d,reload}:{d:Dash;reload:()=>void}){
-  const latest=d.closing?.[0];
-  const initial=latest?.closing_date===today()?latest:null;
-  const [x,setX]=useState({date:today(),cashCounter:initial?String(initial.cash_counter):'',bank:initial?String(initial.bank_balance):'',aeps:initial?String(initial.aeps_balance):'',notes:initial?.notes||''});
-  const [msg,setMsg]=useState('');
-  const save=async()=>{
-    setMsg('');
-    const r=await fetch('/api/closing',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(x)});
-    const j=await r.json();
-    if(r.ok){setMsg('Daily closing saved');reload();}else setMsg(j.error||'Could not save closing');
+  const load=async()=>{
+    try{
+      setRefreshing(true);
+      const r=await fetch('/api/dashboard',{cache:'no-store'});
+      if(r.status===401){location.href='/login';return;}
+      if(r.ok)setData(await r.json());
+    }finally{setRefreshing(false)}
   };
-  return <div className="grid two">
-    <div className="card">
-      <div className="sectionHead"><div><h3>Daily closing</h3><div className="muted small">Record the actual end-of-day balances separately from sales and expenses.</div></div><span className="badge">3 accounts</span></div>
-      <div className="formGrid">
-        <Field label="Closing date" value={x.date} set={v=>setX({...x,date:v})} type="date"/>
-        <Field label="Cash Counter" value={x.cashCounter} set={v=>setX({...x,cashCounter:v})} type="number"/>
-        <Field label="Bank Account" value={x.bank} set={v=>setX({...x,bank:v})} type="number"/>
-        <Field label="AEPS Account" value={x.aeps} set={v=>setX({...x,aeps:v})} type="number"/>
-        <div className="field full"><label>Closing note</label><textarea value={x.notes} onChange={e=>setX({...x,notes:e.target.value})} placeholder="Cash counted, bank checked, AEPS checked…"/></div>
-      </div>
-      <button className="btn primary" style={{marginTop:12}} onClick={save}>Save daily closing</button>
-      {msg&&<div className={msg==='Daily closing saved'?'green':'red'} style={{marginTop:10,fontSize:12}}>{msg}</div>}
-    </div>
-    <ListCard title="Closing history">
-      <table className="table"><thead><tr><th>Date</th><th>Counter</th><th>Bank</th><th>AEPS</th></tr></thead><tbody>
-        {(d.closing||[]).map((x:any)=><tr key={String(x.id)}><td>{x.closing_date}</td><td>{money(x.cash_counter)}</td><td>{money(x.bank_balance)}</td><td>{money(x.aeps_balance)}</td></tr>)}
-      </tbody></table>
-    </ListCard>
+
+  useEffect(()=>{void load()},[]);
+  const d=data??fallback;
+  const go=(next:string)=>{setTab(next);window.scrollTo({top:0,behavior:'smooth'});};
+  const lock=async()=>{await fetch('/api/logout',{method:'POST'});location.href='/login';};
+  const desktopNav=['Home','Add','Closing','Work','Plan','Debt','Shop','AI'];
+
+  return <div className="appShell">
+    <aside className="desktopSidebar">
+      <Brand/>
+      <div className="sideSectionLabel">COMMAND</div>
+      <nav className="sideNav">{desktopNav.map(x=><NavButton key={x} label={x} active={tab===x} onClick={()=>go(x)}/>)}</nav>
+      <div className="sideBottom"><div className="syncDot"><span className={refreshing?'pulseDot':''}/>{refreshing?'Updating…':'Live data'}</div><button className="sideLock" onClick={lock}>Lock</button></div>
+    </aside>
+
+    <main className="appMain">
+      <header className="appHeader">
+        <div><div className="appKicker">GREYSTUDIO</div><h1>{tab==='Add'?'Quick Add':tab==='Closing'?'Daily Closing':tab==='Work'?workTab:tab}</h1><div className="appDate">{new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'short'})}</div></div>
+        <div className="headerActions"><button className="refreshButton" onClick={()=>void load()} aria-label="Refresh">↻</button><button className="headerLock" onClick={lock}>Lock</button></div>
+      </header>
+
+      {tab==='Home'&&<Home d={d} go={go}/>}
+      {tab==='Add'&&<Quick d={d} reload={load}/>}
+      {tab==='Closing'&&<Closing d={d} reload={load}/>}
+      {tab==='Work'&&<Work d={d} reload={load} section={workTab} setSection={setWorkTab}/>}
+      {tab==='Plan'&&<Plan d={d}/>}
+      {tab==='Debt'&&<Debt d={d} reload={load}/>}
+      {tab==='Shop'&&<Shop d={d} reload={load}/>}
+      {tab==='AI'&&<Advisor/>}
+      {tab==='More'&&<More go={go}/>}
+    </main>
+
+    <nav className="mobileBar">
+      {['Home','Add','Closing','Work','More'].map(x=><button key={x} className={tab===x?'active':''} onClick={()=>go(x)}><span className="mobileIcon">{x==='Home'?'⌂':x==='Add'?'+':x==='Closing'?'□':x==='Work'?'✓':'⋯'}</span><span>{x}</span></button>)}
+    </nav>
   </div>;
 }
 
-function Plan({d}:{d:Dash}){
-  const p=d.plan;
-  return <div className="planPage">
-    <div className="planHero card">
-      <div>
-        <div className="eyebrow">GREYSTUDIO FINANCIAL PLAN</div>
-        <h2>Protect the baseline → clear debt → build the agency.</h2>
-        <p className="muted">This page keeps the financial plan you supplied visible beside the live cashflow. Planning values are stored as assumptions and can be updated later.</p>
+function Brand(){return <div className="brandBlock"><div className="brandMark">G</div><div><div className="brandName">GreyStudio</div><div className="brandSub">Command Center</div></div></div>}
+function NavButton({label,active,onClick}:{label:string;active:boolean;onClick:()=>void}){return <button className={'sideNavButton '+(active?'active':'')} onClick={onClick}><span className="navBullet"/>{label}</button>}
+
+function Home({d,go}:{d:Dash;go:(x:string)=>void}){
+  const debtPct=d.debts.total?Math.min(100,d.debts.paid/d.debts.total*100):0;
+  const baselinePct=d.month.survival?Math.min(100,Math.max(0,d.month.net/d.month.survival*100)):0;
+  const tracked=(d.balances.cashCounter??0)+(d.balances.bank??0)+(d.balances.aeps??0);
+
+  return <div className="screen">
+    <section className="welcomeRow">
+      <div><div className="eyebrow">TODAY AT A GLANCE</div><h2>Run the shop. Build the agency.</h2><p className="muted">Capture cash quickly, check the real numbers and keep the next important action visible.</p></div>
+      <button className="heroAction" onClick={()=>go('Add')}>＋ New entry</button>
+    </section>
+
+    <section className="cashStrip">
+      <Metric label="Today in" value={money(d.todayCash.income)} tone="good"/>
+      <Metric label="Today out" value={money(d.todayCash.expense)} tone="bad"/>
+      <Metric label="Today net" value={money(d.todayCash.net)} tone={d.todayCash.net>=0?'good':'bad'}/>
+      <Metric label="This month" value={money(d.month.net)} tone={d.month.net>=0?'good':'bad'}/>
+    </section>
+
+    <section className="balanceStrip">
+      <BalanceMini label="Cash Counter" value={d.balances.cashCounter} onClick={()=>go('Closing')}/>
+      <BalanceMini label="Bank" value={d.balances.bank} onClick={()=>go('Closing')}/>
+      <BalanceMini label="AEPS" value={d.balances.aeps} onClick={()=>go('Closing')}/>
+      <div className="balanceMini total"><span>Tracked total</span><strong>{tracked?money(tracked):'—'}</strong><small>{d.balances.closingDate?'Closing '+d.balances.closingDate:'Add your first closing'}</small></div>
+    </section>
+
+    <section className="gridMain">
+      <div className="stack">
+        <Panel title="Survival plan" action="Plan" onAction={()=>go('Plan')}>
+          <div className="bigProgress"><div><strong>{money(d.month.net)}</strong><span> / {money(d.month.survival)}</span></div><span>{Math.round(baselinePct)}%</span></div>
+          <div className="progressTrack"><span style={{width:baselinePct+'%'}}/></div>
+          <div className="hintLine">{d.month.remaining>0?money(d.month.remaining)+' still needed':'Baseline covered'} · {d.month.daysLeft} days left · need {money(d.month.runrate)}/day</div>
+        </Panel>
+        <Panel title="Recent money" action="Quick add" onAction={()=>go('Add')}>
+          <div className="activityList">{d.transactions.slice(0,8).map((t:any)=><div className="activity" key={String(t.id)}><div><strong>{t.reason||t.category||'Cash movement'}</strong><small>{timeLabel(t.occurred_at)} · {t.raw}</small></div><b className={t.direction==='in'?'good':'bad'}>{t.direction==='in'?'+':'−'}{money(t.amount)}</b></div>)}{!d.transactions.length&&<Empty text="No cash entries yet. Your first entry takes seconds."/>}</div>
+        </Panel>
       </div>
-      <div className="planHeroMetric"><span>Long-term profit target</span><strong>{money(p.targets.profitMin)}–{money(p.targets.profitMax)} / month</strong></div>
-    </div>
+      <div className="stack">
+        <Panel title="Debt" action="Open" onAction={()=>go('Debt')}>
+          <div className="debtHero"><div><small>Remaining</small><strong>{money(d.debts.remaining)}</strong></div><div className="debtRing"><span>{Math.round(debtPct)}%</span></div></div>
+          <div className="progressTrack"><span style={{width:debtPct+'%'}}/></div>
+          <div className="hintLine">{money(d.debts.monthlyTarget)}/month target · 12-month plan</div>
+        </Panel>
+        <Panel title="Work queue" action="Open" onAction={()=>go('Work')}>
+          {d.tasks.filter((x:any)=>x.status!=='done').slice(0,5).map((t:any)=><div className="compactTask" key={String(t.id)}><span className={'priorityDot '+t.priority}/><div><strong>{t.title}</strong><small>{t.area} · {t.due_date||'No due date'}</small></div></div>)}
+          {!d.tasks.filter((x:any)=>x.status!=='done').length&&<Empty text="No open tasks."/>}
+        </Panel>
+      </div>
+    </section>
 
-    <div className="grid four planGrid">
-      <K l="Monthly survival" v={money(p.survivalMonthly)} h="essential cash baseline"/>
-      <K l="Debt target" v={money(p.targets.debtTotal)} h="12-month plan"/>
-      <K l="Debt/month" v={money(p.targets.debtMonthly)} h="planned principal pace"/>
-      <K l="Studio cash target" v={money(p.targets.studioCashMin)+'–'+money(p.targets.studioCashMax)} h="survival + debt generation"/>
-    </div>
-
-    <div className="grid two">
-      <ListCard title="Essential monthly outflow">
-        <div className="planRows">
-          <PlanRow a="Shop rent" v={p.expenses.shopRent}/>
-          <PlanRow a="Shop supplies / ink / paper / stationery" v={p.expenses.shopSupplies}/>
-          <PlanRow a="House groceries" v={p.expenses.groceries}/>
-          <PlanRow a="Fuel" v={p.expenses.fuel}/>
-          <PlanRow a="EMI 1" v={p.expenses.emi1}/>
-          <PlanRow a="EMI 2" v={p.expenses.emi2}/>
-          <PlanRow a="EMI 3" v={p.expenses.emi3}/>
-          <div className="planTotal"><span>Total baseline</span><strong>{money(p.survivalMonthly)}</strong></div>
-        </div>
-      </ListCard>
-
-      <ListCard title="Income reality">
-        <div className="planRows">
-          <PlanRow a="Job salary" v={p.incomeReality.jobSalary}/>
-          <PlanRow a="Co-operative loan deduction" v={p.incomeReality.cooperativeDeduction}/>
-          <PlanRow a="Bank credit after deduction" v={p.incomeReality.bankCreditAfterDeduction}/>
-          <PlanRow a="Usable job income for daily plan" v={p.incomeReality.usableJobIncome}/>
-          <div className="noteBox"><strong>Salary-based gap:</strong> {money(p.incomeReality.salaryBasedGap)} before the plan treats usable daily income as ₹0.</div>
-          <div className="noteBox"><strong>Operating reality:</strong> GreyStudio is expected to fund the full {money(p.survivalMonthly)} baseline.</div>
-        </div>
-      </ListCard>
-    </div>
-
-    <div className="grid two">
-      <ListCard title="Targets & milestones">
-        <div className="planRows">
-          <PlanRowRange a="Walk-in counter net / month" min={p.targets.counterNetMin} max={p.targets.counterNetMax}/>
-          <PlanRowRange a="Studio cash generation / month" min={p.targets.studioCashMin} max={p.targets.studioCashMax}/>
-          <PlanRow a="Debt principal / month" v={p.targets.debtMonthly}/>
-          <PlanRowRange a="Long-term agency profit / month" min={p.targets.profitMin} max={p.targets.profitMax}/>
-          <div className="noteBox">Baseline daily defense reference from the plan: approximately ₹950–₹1,000/day net.</div>
-        </div>
-      </ListCard>
-
-      <ListCard title="Growth roadmap">
-        <div className="roadmap">
-          <Road n="01" title="Defense" text={p.roadmap.defense}/>
-          <Road n="02" title="Growth engine" text={p.roadmap.growth}/>
-          <Road n="03" title="Digital monetization" text={p.roadmap.monetization}/>
-          <div className="noteBox"><strong>Gold-rate site:</strong> {p.goldRateSite.visitorsMin.toLocaleString('en-IN')}–{p.goldRateSite.visitorsMax.toLocaleString('en-IN')} monthly visitors in the supplied plan, with monetization through ads, affiliate partnerships and local jeweler sponsorships.</div>
-        </div>
-      </ListCard>
-    </div>
-
-    <div className="card planHint">
-      <strong>Live planning hint:</strong> {d.month.daysLeft} days left in the current month · {money(d.month.remaining)} remaining against the survival baseline · current run-rate needed {money(d.month.runrate)}/day · live debt remaining {money(d.debts.remaining)}.
-    </div>
+    <section className="quickLinks">
+      <button onClick={()=>go('Add')}><strong>＋</strong><span>Cash entry</span><small>Native keypad</small></button>
+      <button onClick={()=>go('Closing')}><strong>□</strong><span>Daily closing</span><small>Counter · Bank · AEPS</small></button>
+      <button onClick={()=>go('Work')}><strong>✓</strong><span>Work queue</span><small>Tasks & clients</small></button>
+      <button onClick={()=>go('AI')}><strong>✦</strong><span>Advisor</span><small>Numbers & decisions</small></button>
+    </section>
   </div>;
 }
-function PlanRow({a,v}:{a:string;v:number}){return <div className="planRow"><span>{a}</span><strong>{money(v)}</strong></div>}
-function PlanRowRange({a,min,max}:{a:string;min:number;max:number}){return <div className="planRow"><span>{a}</span><strong>{money(min)}–{money(max)}</strong></div>}
-function Road({n,title,text}:{n:string;title:string;text:string}){return <div className="road"><span>{n}</span><div><strong>{title}</strong><p>{text}</p></div></div>}
+
+function Metric({label,value,tone}:{label:string;value:string;tone?:string}){return <div className="metric"><span>{label}</span><strong className={tone}>{value}</strong></div>}
+function BalanceMini({label,value,onClick}:{label:string;value:number|null;onClick:()=>void}){return <button className="balanceMini" onClick={onClick}><span>{label}</span><strong>{value==null?'—':money(value)}</strong><small>Daily closing</small></button>}
+function Panel({title,action,onAction,children}:{title:string;action?:string;onAction?:()=>void;children:ReactNode}){return <section className="panel"><div className="panelHead"><h3>{title}</h3>{action&&<button onClick={onAction}>{action} →</button>}</div>{children}</section>}
+function Empty({text}:{text:string}){return <div className="empty">{text}</div>}
 
 function Quick({d,reload}:{d:Dash;reload:()=>void}){
   const [amount,setAmount]=useState('');
   const [direction,setDirection]=useState<'in'|'out'|null>(null);
   const [reason,setReason]=useState('');
-  const [msg,setMsg]=useState('');
+  const [status,setStatus]=useState('');
   const [saving,setSaving]=useState(false);
+  const amountRef=useRef<HTMLInputElement>(null);
+  const reasonRef=useRef<HTMLInputElement>(null);
 
-  const keys=['7','8','9','4','5','6','1','2','3','00','0','.'];
-  const shortcuts=[
-    ['MT','Money Transfer'],['PS','Passport Photos'],['X/P','Xerox / Print'],['FR','Photo Frames'],
-    ['PH','Photography'],['ST','Stationery'],['GD','Graphic Design'],['WEB','Website Development'],
-    ['VID','Video Editing'],['OT','Other']
-  ];
+  useEffect(()=>{amountRef.current?.focus()},[]);
 
-  const press=(key:string)=>{
-    setMsg('');
-    if(key==='.') { if(!amount.includes('.')) setAmount(amount+'.'); return; }
-    setAmount(amount+key);
+  const focusReason=()=>setTimeout(()=>reasonRef.current?.focus(),30);
+  const choose=(dir:'in'|'out')=>{
+    if(!amount||Number(amount)<=0){setStatus('Enter amount first');amountRef.current?.focus();return}
+    setDirection(dir);setStatus('');focusReason();
   };
-  const back=()=>setAmount(amount.slice(0,-1));
-  const clear=()=>{setAmount('');setDirection(null);setReason('');setMsg('');};
 
-  const chooseDirection=(dir:'in'|'out')=>{
-    if(!amount || Number(amount)<=0){setMsg('Enter an amount first');return;}
-    setDirection(dir);setMsg('');
+  const changeAmount=(raw:string)=>{
+    const q=raw.trim().match(/^([+-]?\\d+(?:\\.\\d+)?)\\s*([vVpP+-])\\s*(.*)$/);
+    if(q){
+      const value=q[1].replace(/^\\+/,'');
+      const dir=(q[2].toLowerCase()==='v'||q[2]==='+')?'in':'out';
+      setAmount(value);setDirection(dir);setReason(q[3]?.trim()||'');setStatus('');focusReason();return;
+    }
+    const clean=raw.replace(/[^0-9.]/g,'');
+    const parts=clean.split('.');
+    setAmount(parts.length>1?parts[0]+'.'+parts.slice(1).join(''):clean);setStatus('');
   };
 
   const submit=async()=>{
-    if(!amount || Number(amount)<=0){setMsg('Enter an amount first');return;}
-    if(!direction){setMsg('Choose RECEIVE (+) or PAID (-)');return;}
-    setSaving(true);setMsg('');
+    if(!amount||Number(amount)<=0){setStatus('Enter an amount');amountRef.current?.focus();return}
+    if(!direction){setStatus('Choose RECEIVE (+) or PAID (-)');return}
+    setSaving(true);setStatus('');
     try{
       const input=amount+(direction==='in'?'+':'-')+(reason.trim()?' '+reason.trim():'');
       const r=await fetch('/api/transactions',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({input})});
       const j=await r.json();
-      if(!r.ok) throw new Error(j.error||'Could not save');
-      setMsg('✓ Saved '+money(Number(amount))+' '+(direction==='in'?'received':'paid')+(reason.trim()?' · '+reason.trim():''));
-      clear();reload();
-    }catch(e){setMsg(e instanceof Error?e.message:'Could not save');}
-    finally{setSaving(false);}
+      if(!r.ok)throw new Error(j.error||'Could not save');
+      setStatus('✓ Saved '+money(Number(amount))+(reason.trim()?' · '+reason.trim():''));
+      setAmount('');setDirection(null);setReason('');void reload();setTimeout(()=>amountRef.current?.focus(),40);
+    }catch(e){setStatus(e instanceof Error?e.message:'Could not save')}
+    finally{setSaving(false)}
   };
 
-  const activeShortcut=shortcuts.find(x=>x[1]===reason)?.[0];
+  return <div className="screen">
+    <section className="entryLayout">
+      <div className="entryCard">
+        <div className="entryTop"><div><div className="eyebrow">COUNTER MODE</div><h2>Fast cash entry</h2><p className="muted">The amount field uses your phone's normal number keyboard. On desktop, use the keyboard.</p></div><div className="codeBadge">100+ · 100-<br/>100v · 100p</div></div>
 
-  return <div className="quickPage">
-    <div className="card calcCard">
-      <div className="sectionHead">
-        <div><div className="eyebrow">FAST ENTRY</div><h2>Counter Calculator</h2><div className="muted small">Enter the amount, choose + / −, then type a name or use a shortcut.</div></div>
-        <span className="badge">{direction==='in'?'RECEIVE +':direction==='out'?'PAID −':'READY'}</span>
+        <label className="amountLabel">AMOUNT</label>
+        <div className="amountBox"><span>₹</span><input ref={amountRef} type="text" inputMode="decimal" enterKeyHint="next" autoComplete="off" value={amount} onChange={e=>changeAmount(e.target.value)} onKeyDown={e=>{if(e.key==='+'){e.preventDefault();choose('in')}else if(e.key==='-'){e.preventDefault();choose('out')}else if(e.key==='Enter'&&direction){e.preventDefault();submit()}}} placeholder="0" aria-label="Amount"/></div>
+
+        {!direction&&<div className="directionGrid"><button className="receiveButton" onClick={()=>choose('in')}><strong>＋ RECEIVE</strong><span>Cash In · v</span></button><button className="paidButton" onClick={()=>choose('out')}><strong>− PAID</strong><span>Cash Out · p</span></button></div>}
+
+        {direction&&<div className="reasonBox">
+          <div className="reasonHeader"><span>{direction==='in'?'RECEIVED FROM':'PAID FOR'}</span><button onClick={()=>{setDirection(null);setReason('');setTimeout(()=>amountRef.current?.focus(),20)}}>Change +/−</button></div>
+          <input ref={reasonRef} className="reasonInputBig" type="text" inputMode="text" enterKeyHint="done" value={reason} onChange={e=>setReason(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();submit()}}} placeholder="Type name / service or use a shortcut" autoComplete="off"/>
+          <div className="shortcutLabel">SHORTCUTS</div>
+          <div className="shortcutChips">{shortcuts.map(([code,label])=><button key={code} onClick={()=>{setReason(label);reasonRef.current?.focus()}} className={reason===label?'selected':''}><b>{code}</b><span>{label}</span></button>)}</div>
+          <div className="entryActions"><button className="saveButton" onClick={submit} disabled={saving}>{saving?'Saving…':'Save Entry ↵'}</button><button className="clearButton" onClick={()=>{setAmount('');setDirection(null);setReason('');setStatus('');amountRef.current?.focus()}}>Clear</button></div>
+          <div className="keyboardHint">Phone: native text keyboard · Desktop: Enter to save · Reason optional</div>
+        </div>}
+
+        {!direction&&<div className="entryHint">Desktop: type amount and press + or −. Phone: the number keypad opens from the amount field. After +/−, your normal text keyboard opens for the name/service.</div>}
+        {status&&<div className={status.startsWith('✓')?'saveStatus':'errorStatus'}>{status}</div>}
       </div>
 
-      <div className="calcDisplay">
-        <div className="calcLabel">{direction==='in'?'MONEY RECEIVED':direction==='out'?'MONEY PAID':'AMOUNT'}</div>
-        <div className="calcAmount">{amount?'₹'+amount:'₹0'}</div>
-        <div className="calcStatus">{direction?('Reason / name '+(reason?'· '+reason:'')):'Tap + or − after entering amount'}</div>
+      <div className="sideEntryPanel">
+        <Panel title="Quick examples"><div className="example"><b>20+</b><span>received, no reason</span></div><div className="example"><b>100v PS</b><span>passport received</span></div><div className="example"><b>150p</b><span>paid, no reason</span></div><div className="example"><b>250- paper</b><span>expense with note</span></div></Panel>
+        <Panel title="Today"><Metric label="Received" value={money(d.todayCash.income)} tone="good"/><Metric label="Paid" value={money(d.todayCash.expense)} tone="bad"/><Metric label="Net" value={money(d.todayCash.net)} tone={d.todayCash.net>=0?'good':'bad'}/></Panel>
       </div>
-
-      {!direction ? <div className="directionRow">
-        <button className="directionButton receive" onClick={()=>chooseDirection('in')}>＋ RECEIVE<br/><small>Money In · v</small></button>
-        <button className="directionButton paid" onClick={()=>chooseDirection('out')}>－ PAID<br/><small>Money Out · p</small></button>
-      </div> : <div className="reasonStage">
-        <div className="reasonTop">
-          <button className="btn secondary" onClick={()=>{setDirection(null);setReason('')}}>← Amount</button>
-          <div className="stageTitle">{direction==='in'?'Received from':'Paid for'}</div>
-          <button className="btn secondary" onClick={clear}>Clear</button>
-        </div>
-        <input
-          className="reasonInput"
-          autoFocus
-          value={reason}
-          onChange={e=>setReason(e.target.value)}
-          onKeyDown={e=>{if(e.key==='Enter')submit();if(e.key==='Escape'){setDirection(null);setReason('')}}}
-          placeholder="Type service / name, then press Enter"
-        />
-        <div className="shortcutTitle">Quick shortcuts</div>
-        <div className="shortcutGrid">
-          {shortcuts.map(([code,label])=><button key={code} className={'shortcut '+(activeShortcut===code?'selected':'')} onClick={()=>setReason(label)}><span>{code}</span><small>{label}</small></button>)}
-        </div>
-        <button className="saveEntry" onClick={submit} disabled={saving}>{saving?'Saving…':'Save Entry ↵'}</button>
-      </div>}
-
-      {!direction && <div className="calcKeypad">
-        <button className="calcKey function" onClick={clear}>C</button>
-        <button className="calcKey function" onClick={back}>⌫</button>
-        <span></span><span></span>
-        {keys.map(k=><button key={k} className="calcKey" onClick={()=>press(k)}>{k}</button>)}
-      </div>}
-
-      {direction && <div className="reasonKeyboardHint">Your phone's normal keyboard is active for the reason/name field. Press <strong>Enter</strong> to feed the entry.</div>}
-      {msg&&<div className={msg.startsWith('✓')?'entrySuccess':'entryError'}>{msg}</div>}
-    </div>
-
-    <ListCard title="Today / latest cashflow">
-      <List rows={d.transactions.slice(0,20).map((t:any)=>({a:t.reason||t.category||'Quick entry',b:t.raw+' · '+new Date(t.occurred_at).toLocaleString('en-IN'),v:(t.direction==='in'?'+':'-')+money(t.amount),c:t.direction==='in'?'green':'red'}))}/>
-    </ListCard>
+    </section>
   </div>;
 }
-function Tasks({d,reload}:{d:Dash;reload:()=>void}){const [x,setX]=useState({title:'',priority:'high',due_date:'',area:'business'});const add=async()=>{if(!x.title)return;await fetch('/api/tasks',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(x)});setX({...x,title:''});reload()};const done=async(id:number)=>{await fetch('/api/tasks',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({id,status:'done'})});reload()};return <div className="grid two"><div className="card"><h3>Add task</h3><div className="formGrid"><Field label="Task" value={x.title} set={v=>setX({...x,title:v})}/><div className="field"><label>Area</label><select value={x.area} onChange={e=>setX({...x,area:e.target.value})}><option>business</option><option>shop</option><option>finance</option><option>life</option></select></div><div className="field"><label>Priority</label><select value={x.priority} onChange={e=>setX({...x,priority:e.target.value})}><option>high</option><option>medium</option><option>low</option></select></div><div className="field"><label>Due</label><input type="date" value={x.due_date} onChange={e=>setX({...x,due_date:e.target.value})}/></div></div><button className="btn primary" style={{marginTop:12}} onClick={add}>Add task</button></div><ListCard title="Work queue"><div className="list">{d.tasks.map((t:any)=><div className="row" key={String(t.id)}><div className="rowMain"><div className="rowTitle">{t.title}</div><div className="rowMeta">{t.area} · {t.priority} · {t.due_date||'No date'}</div></div>{t.status==='done'?<span className="badge">Done</span>:<button className="btn secondary" onClick={()=>done(Number(t.id))}>Done</button>}</div>)}</div></ListCard></div>}
 
-function Clients({d,reload}:{d:Dash;reload:()=>void}){const [x,setX]=useState({name:'',service:'Website / Branding',value:'',status:'lead',next_action:''});const add=async()=>{if(!x.name)return;await fetch('/api/clients',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(x)});setX({...x,name:'',value:'',next_action:''});reload()};return <div className="grid two"><div className="card"><h3>New prospect</h3><div className="formGrid"><Field label="Client / business" value={x.name} set={v=>setX({...x,name:v})}/><Field label="Service" value={x.service} set={v=>setX({...x,service:v})}/><Field label="Potential value" value={x.value} set={v=>setX({...x,value:v})} type="number"/><div className="field"><label>Status</label><select value={x.status} onChange={e=>setX({...x,status:e.target.value})}><option>lead</option><option>contacted</option><option>proposal</option><option>won</option><option>lost</option></select></div><Field label="Next action" value={x.next_action} set={v=>setX({...x,next_action:v})}/></div><button className="btn primary" style={{marginTop:12}} onClick={add}>Add prospect</button></div><ListCard title="Agency pipeline"><table className="table"><thead><tr><th>Client</th><th>Stage</th><th>Value</th></tr></thead><tbody>{d.clients.map((c:any)=><tr key={String(c.id)}><td>{c.name}<div className="rowMeta">{c.service}</div></td><td>{c.status}</td><td>{money(c.value)}</td></tr>)}</tbody></table></ListCard></div>}
+function Closing({d,reload}:{d:Dash;reload:()=>void}){
+  const latest=d.closing?.[0];const todayRecord=latest?.closing_date===today()?latest:null;
+  const [x,setX]=useState({date:today(),cashCounter:todayRecord?String(todayRecord.cash_counter):'',bank:todayRecord?String(todayRecord.bank_balance):'',aeps:todayRecord?String(todayRecord.aeps_balance):'',notes:todayRecord?.notes||''});
+  const [status,setStatus]=useState('');
+  const save=async()=>{setStatus('');const r=await fetch('/api/closing',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(x)});const j=await r.json();if(r.ok){setStatus('✓ Closing saved');reload()}else setStatus(j.error||'Could not save')};
+  return <div className="screen"><section className="closingHeader"><div><div className="eyebrow">END OF DAY</div><h2>Count everything before you close.</h2><p className="muted">Balance snapshot only: Cash Counter, Bank and AEPS stay separate from sales.</p></div><span className="statusPill">{d.balances.closingDate?'Last: '+d.balances.closingDate:'No closing yet'}</span></section><div className="closingGrid"><section className="closingCard"><div className="closingDate"><label>Closing date</label><input type="date" value={x.date} onChange={e=>setX({...x,date:e.target.value})}/></div><div className="closingInputs"><BalanceInput title="Cash Counter" value={x.cashCounter} set={v=>setX({...x,cashCounter:v})}/><BalanceInput title="Bank Account" value={x.bank} set={v=>setX({...x,bank:v})}/><BalanceInput title="AEPS Account" value={x.aeps} set={v=>setX({...x,aeps:v})}/></div><div className="field"><label>Closing note</label><textarea value={x.notes} onChange={e=>setX({...x,notes:e.target.value})} placeholder="Counted / checked / any difference…"/></div><button className="wideSave" onClick={save}>Save daily closing</button>{status&&<div className={status.startsWith('✓')?'saveStatus':'errorStatus'}>{status}</div>}</section><Panel title="Closing history"><div className="historyList">{(d.closing||[]).slice(0,20).map((r:any)=><div className="historyRow" key={String(r.id)}><b>{r.closing_date}</b><span>{money(r.cash_counter)}</span><span>{money(r.bank_balance)}</span><span>{money(r.aeps_balance)}</span></div>)}</div></Panel></div></div>;
+}
+function BalanceInput({title,value,set}:{title:string;value:string;set:(v:string)=>void}){return <div className="balanceInput"><label>{title}</label><div><span>₹</span><input type="number" inputMode="decimal" min="0" value={value} onChange={e=>set(e.target.value)} placeholder="0"/></div></div>}
 
-function Debt({d,reload}:{d:Dash;reload:()=>void}){return <div className="grid two"><ListCard title="Debt plan"><div className="list">{d.debts.items.map((x:any)=><DebtRow key={String(x.id)} x={x} reload={reload}/>)}</div></ListCard><div className="card"><h3>Operating rule</h3><p className="muted small">Protect essential cash first. Keep required obligations visible. Do not use debt money for speculative purchases. Grow high-margin B2B work before adding fixed costs.</p></div></div>}
-function DebtRow({x,reload}:{x:any;reload:()=>void}){const [p,setP]=useState(String(x.paid));const save=async()=>{await fetch('/api/debts',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({id:Number(x.id),paid:p})});reload()};return <div className="row"><div className="rowMain"><div className="rowTitle">{x.name}</div><div className="rowMeta">{money(x.principal)} principal · {x.deadline||'no deadline'}</div></div><div className="inline"><input value={p} onChange={e=>setP(e.target.value)} /><button className="btn secondary" onClick={save}>Update</button></div></div>}
+function Work({d,reload,section,setSection}:{d:Dash;reload:()=>void;section:'Tasks'|'Clients';setSection:(x:'Tasks'|'Clients')=>void}){return <div className="screen"><div className="segmented"><button className={section==='Tasks'?'active':''} onClick={()=>setSection('Tasks')}>Tasks</button><button className={section==='Clients'?'active':''} onClick={()=>setSection('Clients')}>Clients</button></div>{section==='Tasks'?<Tasks d={d} reload={reload}/>:<Clients d={d} reload={reload}/>}</div>}
 
-function Shop({d,reload}:{d:Dash;reload:()=>void}){const [x,setX]=useState({date:today(),footfall:'',notes:''});const save=async()=>{await fetch('/api/shop',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(x)});reload()};return <div className="grid two"><div className="card"><h3>Daily shop pulse</h3><div className="formGrid"><Field label="Date" value={x.date} set={v=>setX({...x,date:v})} type="date"/><Field label="Footfall" value={x.footfall} set={v=>setX({...x,footfall:v})} type="number"/><div className="field full"><label>Notes</label><textarea value={x.notes} onChange={e=>setX({...x,notes:e.target.value})}/></div></div><button className="btn primary" style={{marginTop:12}} onClick={save}>Save shop day</button></div><ListCard title="Recent shop days"><table className="table"><thead><tr><th>Date</th><th>Footfall</th><th>Notes</th></tr></thead><tbody>{d.shop.map((x:any)=><tr key={String(x.id)}><td>{x.date}</td><td>{x.footfall}</td><td>{x.notes||''}</td></tr>)}</tbody></table></ListCard></div>}
+function Tasks({d,reload}:{d:Dash;reload:()=>void}){
+ const [x,setX]=useState({title:'',priority:'high',due_date:'',area:'business'});
+ const add=async()=>{if(!x.title.trim())return;await fetch('/api/tasks',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(x)});setX({...x,title:''});reload()};
+ const done=async(id:number)=>{await fetch('/api/tasks',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({id,status:'done'})});reload()};
+ return <div className="workGrid"><section className="panel formPanel"><div className="panelHead"><h3>New task</h3></div><div className="formStack"><Field label="What needs doing?" value={x.title} set={v=>setX({...x,title:v})}/><div className="formSplit"><SelectField label="Priority" value={x.priority} set={v=>setX({...x,priority:v})} options={['high','medium','low']}/><SelectField label="Area" value={x.area} set={v=>setX({...x,area:v})} options={['business','shop','finance','life']}/></div><Field label="Due date" value={x.due_date} set={v=>setX({...x,due_date:v})} type="date"/></div><button className="wideSave" onClick={add}>Add task</button></section><section className="panel"><div className="panelHead"><h3>Work queue</h3><span className="countPill">{d.tasks.filter((t:any)=>t.status!=='done').length} open</span></div>{d.tasks.map((t:any)=><div className="workRow" key={String(t.id)}><div><strong>{t.title}</strong><small>{t.area} · {t.priority} · {t.due_date||'No due date'}</small></div>{t.status==='done'?<span className="donePill">Done</span>:<button className="smallAction" onClick={()=>done(Number(t.id))}>Done</button>}</div>)}</section></div>;
+}
 
-function Advisor({value,setValue,busy,setBusy}:{value:string;setValue:(x:string)=>void;busy:boolean;setBusy:(x:boolean)=>void}){const [out,setOut]=useState('');const ask=async()=>{if(!value.trim())return;setBusy(true);const r=await fetch('/api/ai',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({message:value})});const j=await r.json();setOut(j.answer||j.error||'No response');setBusy(false)};return <div className="grid two"><div className="card"><h3>GreyStudio AI advisor</h3><p className="muted small">Ask about cash flow, pricing, debt sequencing, client acquisition, shop priorities or the next safest move.</p><textarea className="aiInput" value={value} onChange={e=>setValue(e.target.value)} placeholder="What should I focus on next?"/><button className="btn primary" style={{marginTop:12}} onClick={ask} disabled={busy}>{busy?'Thinking…':'Ask advisor'}</button></div><div className="card"><div className="sectionHead"><h3>Advisor output</h3><span className="badge">Context aware</span></div><div className="aiBox">{out||'Answer appears here. Record-changing actions require explicit approval.'}</div></div></div>}
+function Clients({d,reload}:{d:Dash;reload:()=>void}){
+ const [x,setX]=useState({name:'',service:'Website / Branding',value:'',status:'lead',next_action:''});
+ const add=async()=>{if(!x.name.trim())return;await fetch('/api/clients',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(x)});setX({...x,name:'',value:'',next_action:''});reload()};
+ return <div className="workGrid"><section className="panel formPanel"><div className="panelHead"><h3>New prospect</h3></div><div className="formStack"><Field label="Client / business" value={x.name} set={v=>setX({...x,name:v})}/><Field label="Service" value={x.service} set={v=>setX({...x,service:v})}/><Field label="Potential value" value={x.value} set={v=>setX({...x,value:v})} type="number"/><SelectField label="Stage" value={x.status} set={v=>setX({...x,status:v})} options={['lead','contacted','proposal','won','lost']}/><Field label="Next action" value={x.next_action} set={v=>setX({...x,next_action:v})}/></div><button className="wideSave" onClick={add}>Add prospect</button></section><section className="panel"><div className="panelHead"><h3>Agency pipeline</h3></div>{d.clients.map((c:any)=><div className="workRow" key={String(c.id)}><div><strong>{c.name}</strong><small>{c.service||'Service TBD'} · {c.status}</small></div><b>{money(c.value)}</b></div>)}{!d.clients.length&&<Empty text="No prospects yet."/>}</section></div>;
+}
+
+function Plan({d}:{d:Dash}){
+ const p=d.plan;
+ return <div className="screen"><section className="planTop"><div><div className="eyebrow">YOUR OPERATING PLAN</div><h2>Defend cash. Clear debt. Build the agency.</h2><p className="muted">Your supplied planning numbers, kept visible and separate from actual recorded cash.</p></div><div className="targetBox"><small>Long-term profit</small><strong>{money(p.targets.profitMin)}–{money(p.targets.profitMax)}</strong><span>per month</span></div></section><div className="planCards"><Metric label="Survival / month" value={money(p.survivalMonthly)}/><Metric label="Debt target" value={money(p.targets.debtTotal)}/><Metric label="Debt pace" value={money(p.targets.debtMonthly)}/><Metric label="Studio cash target" value={money(p.targets.studioCashMin)+'–'+money(p.targets.studioCashMax)}/></div><div className="planGrid"><Panel title="Monthly essential outflow"><PlanRow a="Shop rent" v={p.expenses.shopRent}/><PlanRow a="Shop supplies" v={p.expenses.shopSupplies}/><PlanRow a="Groceries" v={p.expenses.groceries}/><PlanRow a="Fuel" v={p.expenses.fuel}/><PlanRow a="EMI 1" v={p.expenses.emi1}/><PlanRow a="EMI 2" v={p.expenses.emi2}/><PlanRow a="EMI 3" v={p.expenses.emi3}/><div className="planTotal"><span>Total</span><strong>{money(p.survivalMonthly)}</strong></div></Panel><Panel title="Income reality"><PlanRow a="Job salary" v={p.incomeReality.jobSalary}/><PlanRow a="Co-op deduction" v={p.incomeReality.cooperativeDeduction}/><PlanRow a="Bank credit after deduction" v={p.incomeReality.bankCreditAfterDeduction}/><PlanRow a="Usable job income in plan" v={p.incomeReality.usableJobIncome}/><div className="noteBox">Salary-based gap reference: <b>{money(p.incomeReality.salaryBasedGap)}</b>.</div></Panel><Panel title="Growth roadmap"><Road num="01" title="Defense" text={p.roadmap.defense}/><Road num="02" title="Growth engine" text={p.roadmap.growth}/><Road num="03" title="Digital monetization" text={p.roadmap.monetization}/><div className="noteBox">Gold-rate site planning traffic: <b>{p.goldRateSite.visitorsMin.toLocaleString('en-IN')}–{p.goldRateSite.visitorsMax.toLocaleString('en-IN')}</b> monthly visitors.</div></Panel><Panel title="Targets"><PlanRowRange a="Walk-in counter net / month" min={p.targets.counterNetMin} max={p.targets.counterNetMax}/><PlanRowRange a="Studio cash / month" min={p.targets.studioCashMin} max={p.targets.studioCashMax}/><PlanRow a="Survival + debt arithmetic" v={p.survivalMonthly+p.targets.debtMonthly}/><PlanRow a="Agency profit floor" v={p.targets.profitMin}/><PlanRow a="Agency profit stretch" v={p.targets.profitMax}/></Panel></div></div>;
+}
+function PlanRow({a,v}:{a:string;v:number}){return <div className="planRow"><span>{a}</span><strong>{money(v)}</strong></div>}
+function PlanRowRange({a,min,max}:{a:string;min:number;max:number}){return <div className="planRow"><span>{a}</span><strong>{money(min)}–{money(max)}</strong></div>}
+function Road({num,title,text}:{num:string;title:string;text:string}){return <div className="road"><b>{num}</b><div><strong>{title}</strong><p>{text}</p></div></div>}
+
+function Debt({d,reload}:{d:Dash;reload:()=>void}){return <div className="screen"><section className="planTop"><div><div className="eyebrow">DEBT CONTROL</div><h2>{money(d.debts.remaining)} remaining</h2><p className="muted">Planning pace: {money(d.debts.monthlyTarget)} principal per month.</p></div><div className="targetBox"><small>Paid</small><strong>{money(d.debts.paid)}</strong><span>of {money(d.debts.total)}</span></div></section><div className="debtList">{d.debts.items.map((x:any)=><DebtRow key={String(x.id)} x={x} reload={reload}/>)}</div></div>}
+function DebtRow({x,reload}:{x:any;reload:()=>void}){const [p,setP]=useState(String(x.paid));const save=async()=>{await fetch('/api/debts',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({id:Number(x.id),paid:p})});reload()};return <div className="panel debtRow"><div><strong>{x.name}</strong><small>{money(x.principal)} principal · deadline {x.deadline||'—'}</small></div><div className="debtEdit"><input value={p} inputMode="decimal" onChange={e=>setP(e.target.value)}/><button className="smallAction" onClick={save}>Update paid</button></div></div>}
+
+function Shop({d,reload}:{d:Dash;reload:()=>void}){const [x,setX]=useState({date:today(),footfall:'',notes:''});const save=async()=>{await fetch('/api/shop',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(x)});reload()};return <div className="screen"><section className="workGrid"><section className="panel formPanel"><div className="panelHead"><h3>Daily shop pulse</h3></div><div className="formStack"><Field label="Date" value={x.date} set={v=>setX({...x,date:v})} type="date"/><Field label="Footfall" value={x.footfall} set={v=>setX({...x,footfall:v})} type="number"/><div className="field"><label>Notes</label><textarea value={x.notes} onChange={e=>setX({...x,notes:e.target.value})}/></div></div><button className="wideSave" onClick={save}>Save shop day</button></section><section className="panel"><div className="panelHead"><h3>Recent shop days</h3></div>{d.shop.map((s:any)=><div className="workRow" key={String(s.id)}><div><strong>{s.date}</strong><small>{s.notes||'No notes'}</small></div><b>{s.footfall}</b></div>)}</section></section></div>}
+
+function Advisor(){const [q,setQ]=useState('');const [answer,setAnswer]=useState('');const [busy,setBusy]=useState(false);const ask=async()=>{if(!q.trim())return;setBusy(true);try{const r=await fetch('/api/ai',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({message:q})});const j=await r.json();setAnswer(j.answer||j.error||'No response')}finally{setBusy(false)}};return <div className="screen"><section className="aiGrid"><section className="panel"><div className="eyebrow">AI ADVISOR</div><h2>Ask about the next move.</h2><p className="muted">Cash flow, debt pace, pricing, client acquisition, shop priorities or the agency plan.</p><textarea className="aiQuestion" value={q} onChange={e=>setQ(e.target.value)} placeholder="What should I focus on tomorrow?"/><button className="wideSave" onClick={ask} disabled={busy}>{busy?'Thinking…':'Ask advisor'}</button></section><section className="panel"><div className="panelHead"><h3>Advisor response</h3><span className="countPill">Context aware</span></div><div className="aiAnswer">{answer||'Your response will appear here.'}</div></section></section></div>}
+
+function More({go}:{go:(x:string)=>void}){return <div className="screen"><section className="moreGrid">{[['Plan','Your complete financial plan'],['Debt','Repayment control'],['Shop','Footfall and shop pulse'],['AI','Ask the advisor']].map(([title,desc])=><button key={title} onClick={()=>go(title)} className="moreCard"><strong>{title}</strong><span>{desc}</span><b>Open →</b></button>)}</section></div>}
+
 function Field({label,value,set,type='text'}:{label:string;value:string;set:(x:string)=>void;type?:string}){return <div className="field"><label>{label}</label><input type={type} value={value} onChange={e=>set(e.target.value)}/></div>}
+function SelectField({label,value,set,options}:{label:string;value:string;set:(x:string)=>void;options:string[]}){return <div className="field"><label>{label}</label><select value={value} onChange={e=>set(e.target.value)}>{options.map(o=><option key={o}>{o}</option>)}</select></div>}
