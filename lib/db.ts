@@ -22,7 +22,8 @@ export async function initDb() {
     "CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'todo', priority TEXT NOT NULL DEFAULT 'medium', due_date TEXT, area TEXT NOT NULL DEFAULT 'business', notes TEXT, created_at TEXT NOT NULL, completed_at TEXT)",
     "CREATE TABLE IF NOT EXISTS clients (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, service TEXT, value REAL NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'lead', next_action TEXT, next_action_date TEXT, notes TEXT, created_at TEXT NOT NULL)",
     "CREATE TABLE IF NOT EXISTS shop_daily (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL UNIQUE, footfall INTEGER NOT NULL DEFAULT 0, notes TEXT, created_at TEXT NOT NULL)",
-    "CREATE TABLE IF NOT EXISTS ai_notes (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT NOT NULL)"
+    "CREATE TABLE IF NOT EXISTS ai_notes (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS daily_closing (id INTEGER PRIMARY KEY AUTOINCREMENT, closing_date TEXT NOT NULL UNIQUE, cash_counter REAL NOT NULL DEFAULT 0, bank_balance REAL NOT NULL DEFAULT 0, aeps_balance REAL NOT NULL DEFAULT 0, notes TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"
   ];
   await d.batch(statements.map((sql) => ({ sql })), 'write');
   const settings = {
@@ -30,7 +31,7 @@ export async function initDb() {
     debt_months: '12',
     target_profit_min: '200000',
     target_profit_max: '500000',
-    seed_v1: '1'
+    seed_v1: '2'
   };
   for (const [key, value] of Object.entries(settings)) {
     await d.execute({ sql:'INSERT OR IGNORE INTO settings(key,value) VALUES(?,?)', args:[key,value] });
