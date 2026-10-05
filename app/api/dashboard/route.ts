@@ -22,12 +22,13 @@ export async function GET(){
       d.execute({sql:'SELECT * FROM shop_daily ORDER BY date DESC,id DESC LIMIT 30',args:[]}),
       d.execute({sql:'SELECT * FROM daily_closing ORDER BY closing_date DESC,id DESC LIMIT 30',args:[]})
     ]);
-    const income=Number(m.rows[0]?.income||0),expense=Number(m.rows[0]?.expense||0),net=income-expense,survival=Number(settings.survival_monthly||28300),remaining=Math.max(0,survival-net);
+    const monthRow:any=(m as any).rows?.[0]||{};const todayRow:any=(todayRows as any).rows?.[0]||{};
+    const income=Number(monthRow.income||0),expense=Number(monthRow.expense||0),net=income-expense,survival=Number(settings.survival_monthly||28300),remaining=Math.max(0,survival-net);
     const start=new Date(today+'T00:00:00+05:30');const next=new Date(start);next.setMonth(next.getMonth()+1);next.setDate(1);
     const daysLeft=Math.max(1,Math.ceil((next.getTime()-start.getTime())/86400000));
     const debtTotal=debts.rows.reduce((s:any,r:any)=>s+Number(r.principal||0),0),debtPaid=debts.rows.reduce((s:any,r:any)=>s+Number(r.paid||0),0);
     const debtMonths=Number(settings.debt_months||12),monthlyTarget=debtMonths?debtTotal/debtMonths:0;
-    const latest=closing.rows[0]||null;
-    return NextResponse.json({today,todayCash:{income:Number(todayRows.rows[0]?.income||0),expense:Number(todayRows[0]?.expense||0),net:Number(todayRows[0]?.income||0)-Number(todayRows[0]?.expense||0)},month:{income,expense,net,survival,remaining,daysLeft,runrate:remaining/daysLeft},debts:{total:debtTotal,paid:debtPaid,remaining:Math.max(0,debtTotal-debtPaid),monthlyTarget,items:debts.rows},balances:{cashCounter:latest?Number(latest.cash_counter):null,bank:latest?Number(latest.bank_balance):null,aeps:latest?Number(latest.aeps_balance):null,closingDate:latest?.closing_date||null},closing:closing.rows,transactions:tx.rows,tasks:tasks.rows,clients:clients.rows,shop:shop.rows,settings});
+    const latest:any=(closing as any).rows?.[0]||null;
+    return NextResponse.json({today,todayCash:{income:Number(todayRows.rows[0]?.income||0),expense:Number(todayRows[0]?.expense||0),net:Number(todayRows[0]?.income||0)-Number(todayRows[0]?.expense||0)},month:{income,expense,net,survival,remaining,daysLeft,runrate:remaining/daysLeft},debts:{total:debtTotal,paid:debtPaid,remaining:Math.max(0,debtTotal-debtPaid),monthlyTarget,items:debts.rows},balances:{cashCounter:latest?Number(latest.cash_counter):null,bank:latest?Number(latest.bank_balance):null,aeps:latest?Number(latest.aeps_balance):null,closingDate:latest?.closing_date||null},closing:(closing as any).rows,transactions:tx.rows,tasks:tasks.rows,clients:clients.rows,shop:shop.rows,settings});
   }catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Dashboard failed'},{status:500});}
 }
