@@ -4,8 +4,8 @@ let db: Client | null = null;
 
 export function getDb() {
   if (!db) {
-    const url = process.env.TURSO_DATABASE_URL;
-    const authToken = process.env.TURSO_AUTH_TOKEN;
+    const url = process.env.TURSO_DATABASE_URL || process.env.greystudio_TURSO_DATABASE_URL;
+    const authToken = process.env.TURSO_AUTH_TOKEN || process.env.greystudio_TURSO_AUTH_TOKEN;
     if (!url || !authToken) throw new Error('Turso is not configured.');
     db = createClient({ url, authToken });
   }
