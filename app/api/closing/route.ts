@@ -15,7 +15,9 @@ export async function POST(req:Request){
     const b=await req.json();
     const date=String(b?.date||'');
     if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return NextResponse.json({error:'Valid closing date is required'},{status:400});
-    const values=[Number(b?.cashCounter),Number(b?.bank),Number(b?.aeps)];
+    const rawValues=[b?.cashCounter,b?.bank,b?.aeps];
+    if(rawValues.some(v=>v===undefined||v===null||String(v).trim()==='')) return NextResponse.json({error:'Enter Cash Counter, Bank and AEPS balances.'},{status:400});
+    const values=rawValues.map(Number);
     if(values.some(v=>!Number.isFinite(v)||v<0)) return NextResponse.json({error:'Balances must be zero or positive numbers'},{status:400});
     const notes=b?.notes?String(b.notes).trim():null;
     const now=new Date().toISOString();
