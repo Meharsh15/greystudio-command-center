@@ -12,12 +12,17 @@ export default function CommandCenter(){
  const log=async()=>{if(!quick.trim())return;const r=await fetch('/api/transactions',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({input:quick})});const j=await r.json();setMessage(r.ok?'Saved '+money(j.transaction.amount)+' '+(j.transaction.direction==='in'?'in':'out')+(j.transaction.reason?' · '+j.transaction.reason:''):j.error||'Could not save');if(r.ok){setQuick('');load();}};
  const lock=async()=>{await fetch('/api/logout',{method:'POST'});location.href='/login';};
  if(!d)return <main className="main"><div className="card">Loading GreyStudio Command Center…</div></main>;
- const nav=['Home','Quick','Tasks','Clients','Debt','Shop','AI'];const debtPct=d.debts.total?Math.min(100,d.debts.paid/d.debts.total*100):0;const survivalPct=d.month.survival?Math.min(100,Math.max(0,d.month.net/d.month.survival*100)):0;
+ const nav=['Home','Quick','Closing','Tasks','Clients','Debt','Shop','AI'];const debtPct=d.debts.total?Math.min(100,d.debts.paid/d.debts.total*100):0;const survivalPct=d.month.survival?Math.min(100,Math.max(0,d.month.net/d.month.survival*100)):0;
  return <div className="shell">
   <aside className="sidebar"><Brand/><nav className="nav">{nav.map(x=><button key={x} className={tab===x?'active':''} onClick={()=>setTab(x)}>{x}</button>)}</nav><div className="footerNote">Private · Turso-backed<br/>Daily control center</div></aside>
   <main className="main"><header className="topbar"><div><div className="pageTitle">GreyStudio</div><div className="pageSub">Finance · shop · agency · life</div></div><button className="btn secondary" onClick={lock}>Lock</button></header>
    {tab==='Home'&&<><section className="card hero"><div><div className="eyebrow">TODAY'S COMMAND PANEL</div><h1>Control the cash. Build the agency.</h1><p className="muted">Capture every cash movement, protect the survival baseline, push high-margin work and keep debt visible.</p></div><div className="quick"><input value={quick} onChange={e=>setQuick(e.target.value)} onKeyDown={e=>e.key==='Enter'&&log()} placeholder="500+ passport · 150- paper"/><button className="btn primary" onClick={log}>Log</button></div>{message&&<div className={message.startsWith('Saved')?'green':'red'} style={{marginTop:10,fontSize:12}}>{message}</div>}</section>
     <div className="grid kpiGrid"><K l="Month in" v={money(d.month.income)} h="cash received"/><K l="Month out" v={money(d.month.expense)} h="cash paid"/><K l="Net cash" v={money(d.month.net)} h="this month" c={d.month.net>=0?'green':'red'}/><K l="Survival gap" v={money(d.month.remaining)} h={d.month.daysLeft+' days left'} c={d.month.remaining?'yellow':'green'}/><K l="Debt left" v={money(d.debts.remaining)} h={Math.round(debtPct)+'% repaid'} c={d.debts.remaining?'yellow':'green'}/></div>
+    <div className="grid three balanceGrid" style={{marginTop:14}}>
+      <BalanceCard title="Cash Counter" value={d.balances.cashCounter} sub={d.balances.closingDate?'Closing · '+d.balances.closingDate:'No closing recorded'}/>
+      <BalanceCard title="Bank Balance" value={d.balances.bank} sub={d.balances.closingDate?'Same closing · '+d.balances.closingDate:'No closing recorded'}/>
+      <BalanceCard title="AEPS Balance" value={d.balances.aeps} sub={d.balances.closingDate?'Same closing · '+d.balances.closingDate:'No closing recorded'}/>
+    </div>
     <div className="grid two" style={{marginTop:14}}><Progress title="Survival defense" pct={survivalPct} text={d.month.remaining?money(d.month.remaining)+' still needed this month':'Baseline covered for this month'} /><Progress title="Debt liquidation" pct={debtPct} text={money(d.debts.paid)+' paid · target '+money(d.debts.monthlyTarget)+'/month'}/></div>
     <div className="grid three" style={{marginTop:14}}><ListCard title="Recent cashflow"><List rows={d.transactions.slice(0,7).map((t:any)=>({a:t.reason||t.category||'Quick entry',b:new Date(t.occurred_at).toLocaleString('en-IN'),v:(t.direction==='in'?'+':'-')+money(t.amount),c:t.direction==='in'?'green':'red'}))}/></ListCard><ListCard title="Priority tasks"><List rows={d.tasks.filter((t:any)=>t.status!=='done').slice(0,6).map((t:any)=>({a:t.title,b:t.area+' · '+t.priority,v:t.due_date||'No date'}))}/></ListCard><ListCard title="Pipeline"><List rows={d.clients.slice(0,6).map((c:any)=>({a:c.name,b:(c.service||'Service TBD')+' · '+c.status,v:money(c.value)}))}/></ListCard></div>
    </>}
@@ -27,7 +32,7 @@ export default function CommandCenter(){
    {tab==='Debt'&&<Debt d={d} reload={load}/>}
    {tab==='Shop'&&<Shop d={d} reload={load}/>}
    {tab==='AI'&&<Advisor value={ai} setValue={setAi} busy={busy} setBusy={setBusy}/>}
-  </main><div className="mobileNav">{nav.slice(0,5).map(x=><button key={x} className={tab===x?'active':''} onClick={()=>setTab(x)}>{x}</button>)}</div>
+  </main><div className="mobileNav">{nav.map(x=><button key={x} className={tab===x?'active':''} onClick={()=>setTab(x)}>{x}</button>)}</div>
  </div>
 }
 function Brand(){return <div className="brand"><div className="brandMark">G</div><div><div className="brandTitle">GreyStudio</div><div className="brandSub">Command Center</div></div></div>}
@@ -35,6 +40,39 @@ function K({l,v,h,c}:{l:string;v:string;h:string;c?:string}){return <div classNa
 function Progress({title,pct,text}:{title:string;pct:number;text:string}){return <div className="card"><div className="sectionHead"><h3>{title}</h3><small>{Math.round(pct)}%</small></div><div className="bar"><span style={{width:pct+'%'}}/></div><p className="muted small">{text}</p></div>}
 function ListCard({title,children}:{title:string;children:React.ReactNode}){return <div className="card"><div className="sectionHead"><h3>{title}</h3></div>{children}</div>}
 function List({rows}:{rows:any[]}){return <div className="list">{rows.length?rows.map((r,i)=><div className="row" key={i}><div className="rowMain"><div className="rowTitle">{r.a}</div><div className="rowMeta">{r.b}</div></div><strong className={r.c||''}>{r.v}</strong></div>):<div className="empty">No records yet</div>}</div>}
+
+function BalanceCard({title,value,sub}:{title:string;value:number|null;sub:string}){return <div className="card balanceCard"><div className="label">{title}</div><div className="balanceValue">{value==null?'Not set':money(value)}</div><div className="hint">{sub}</div></div>}
+function Closing({d,reload}:{d:Dash;reload:()=>void}){
+  const latest=d.closing?.[0];
+  const initial=latest?.closing_date===today()?latest:null;
+  const [x,setX]=useState({date:today(),cashCounter:initial?String(initial.cash_counter):'',bank:initial?String(initial.bank_balance):'',aeps:initial?String(initial.aeps_balance):'',notes:initial?.notes||''});
+  const [msg,setMsg]=useState('');
+  const save=async()=>{
+    setMsg('');
+    const r=await fetch('/api/closing',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(x)});
+    const j=await r.json();
+    if(r.ok){setMsg('Daily closing saved');reload();}else setMsg(j.error||'Could not save closing');
+  };
+  return <div className="grid two">
+    <div className="card">
+      <div className="sectionHead"><div><h3>Daily closing</h3><div className="muted small">Record the actual end-of-day balances separately from sales and expenses.</div></div><span className="badge">3 accounts</span></div>
+      <div className="formGrid">
+        <Field label="Closing date" value={x.date} set={v=>setX({...x,date:v})} type="date"/>
+        <Field label="Cash Counter" value={x.cashCounter} set={v=>setX({...x,cashCounter:v})} type="number"/>
+        <Field label="Bank Account" value={x.bank} set={v=>setX({...x,bank:v})} type="number"/>
+        <Field label="AEPS Account" value={x.aeps} set={v=>setX({...x,aeps:v})} type="number"/>
+        <div className="field full"><label>Closing note</label><textarea value={x.notes} onChange={e=>setX({...x,notes:e.target.value})} placeholder="Cash counted, bank checked, AEPS checked…"/></div>
+      </div>
+      <button className="btn primary" style={{marginTop:12}} onClick={save}>Save daily closing</button>
+      {msg&&<div className={msg==='Daily closing saved'?'green':'red'} style={{marginTop:10,fontSize:12}}>{msg}</div>}
+    </div>
+    <ListCard title="Closing history">
+      <table className="table"><thead><tr><th>Date</th><th>Counter</th><th>Bank</th><th>AEPS</th></tr></thead><tbody>
+        {(d.closing||[]).map((x:any)=><tr key={String(x.id)}><td>{x.closing_date}</td><td>{money(x.cash_counter)}</td><td>{money(x.bank_balance)}</td><td>{money(x.aeps_balance)}</td></tr>)}
+      </tbody></table>
+    </ListCard>
+  </div>;
+}
 
 function Quick({d,reload}:{d:Dash;reload:()=>void}){const [v,setV]=useState('');const add=async()=>{if(!v)return;await fetch('/api/transactions',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({input:v})});setV('');reload()};return <div className="grid two"><div className="card"><h3>Fast money entry</h3><p className="muted small">100+ = income · 100- = expense · 100v = income · 100p = expense</p><div className="quick" style={{marginTop:12}}><input value={v} onChange={e=>setV(e.target.value)} onKeyDown={e=>e.key==='Enter'&&add()} placeholder="Example: 500+ passport"/><button className="btn primary" onClick={add}>Save</button></div></div><ListCard title="Last transactions"><List rows={d.transactions.slice(0,25).map((t:any)=>({a:t.reason||t.category||'Uncategorized',b:t.raw+' · '+new Date(t.occurred_at).toLocaleString('en-IN'),v:(t.direction==='in'?'+':'-')+money(t.amount),c:t.direction==='in'?'green':'red'}))}/></ListCard></div>}
 
