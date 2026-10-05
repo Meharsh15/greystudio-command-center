@@ -4,6 +4,7 @@ import {useState} from 'react';
 
 export default function Login(){
   const [password,setPassword]=useState('');
+  const [remember,setRemember]=useState(true);
   const [error,setError]=useState('');
   const [busy,setBusy]=useState(false);
 
@@ -14,7 +15,7 @@ export default function Login(){
       const r=await fetch('/api/login',{
         method:'POST',
         headers:{'content-type':'application/json'},
-        body:JSON.stringify({password})
+        body:JSON.stringify({password,remember})
       });
       const j=await r.json();
       if(r.ok) location.href='/';
@@ -33,7 +34,7 @@ export default function Login(){
         <div><div className="brandTitle">GreyStudio</div><div className="brandSub">Command Center</div></div>
       </div>
       <h1 style={{marginBottom:6}}>Private access</h1>
-      <p className="muted">Finance, shop, business and life data stay behind your app password.</p>
+      <p className="muted">Secure access to your finance, shop and business command center.</p>
       <div className="field" style={{marginTop:18}}>
         <label>Password</label>
         <input
@@ -42,9 +43,13 @@ export default function Login(){
           value={password}
           onChange={e=>setPassword(e.target.value)}
           onKeyDown={e=>{if(e.key==='Enter')submit()}}
-          placeholder="Enter your private password"
+          placeholder="Enter password"
         />
       </div>
+      <label style={{display:'flex',alignItems:'center',gap:8,fontSize:12,color:'#9aa4b2',marginTop:10,cursor:'pointer'}}>
+        <input type="checkbox" checked={remember} onChange={e=>setRemember(e.target.checked)} />
+        Trust this device for 180 days
+      </label>
       <button className="btn primary" style={{width:'100%',marginTop:12}} onClick={submit} disabled={busy}>
         {busy?'Opening…':'Open Command Center'}
       </button>
