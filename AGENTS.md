@@ -14,4 +14,6 @@ Quick transaction syntax: 100+, +100, 100v, V100 = incoming. 100-, -100, 100p, P
 
 Shop categories: Money Transfer, Xerox, Passport Photos, Photo Frames, Printing, Stationery, Photography, Graphic Design, Website Development, Video Editing, Other.
 
+Daily closing: record actual end-of-day Cash Counter, Bank Account and AEPS Account balances separately from revenue/expense transactions. The latest closing snapshot is displayed on the dashboard; never infer an account balance from sales unless account-level transaction tracking has explicitly been added.
+
 AI actions that change financial/business records require explicit user approval. Recommendations must distinguish facts from assumptions. Preserve mobile/PWA usability. Update this file and docs/AI_CONTEXT.md when durable business rules change.
