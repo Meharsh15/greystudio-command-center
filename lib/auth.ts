@@ -5,7 +5,8 @@ const COOKIE='gs_session';
 const REMEMBER_DAYS=180;
 
 function token(){ return crypto.createHash('sha256').update((process.env.APP_PASSWORD||'')+':greystudio').digest('hex'); }
-export function validPassword(value:string){ return Boolean(process.env.APP_PASSWORD) && value===process.env.APP_PASSWORD; }
+export function passwordConfigured(){ return Boolean(process.env.APP_PASSWORD); }
+export function validPassword(value:string){ return passwordConfigured() && value===process.env.APP_PASSWORD; }
 
 export async function isAuthed(){
   const c=await cookies();
@@ -25,11 +26,5 @@ export async function setAuth(remember=true){
 
 export async function clearAuth(){
   const c=await cookies();
-  c.set(COOKIE,'',{
-    httpOnly:true,
-    sameSite:'lax',
-    secure:process.env.NODE_ENV==='production',
-    path:'/',
-    maxAge:0
-  });
+  c.set(COOKIE,'',{httpOnly:true,sameSite:'lax',secure:process.env.NODE_ENV==='production',path:'/',maxAge:0});
 }
